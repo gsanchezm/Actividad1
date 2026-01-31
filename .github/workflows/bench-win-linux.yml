@@ -13,7 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build benchmark (ejercicio7)
+      # -------- Build (Linux) --------
+      - name: Build benchmark (Linux)
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           cd ejercicio7
@@ -21,23 +23,35 @@ jobs:
             apps/benchmark.cpp avl/AVLTree.cpp btree/BTree.cpp btree/DiskStorage.cpp \
             -o bench
 
-      - name: Run benchmark
+      # -------- Run (Linux) --------
+      - name: Run benchmark (Linux)
+        if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           cd ejercicio7
-          # En Windows podría ser bench.exe; bash suele permitir ./bench, pero dejamos fallback
-          if [ -f "./bench.exe" ]; then
-            ./bench.exe
-          else
-            ./bench
-          fi
+          ./bench
+          mv bench.csv bench_linux.csv
 
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            mv bench.csv bench_linux.csv
-          else
-            mv bench.csv bench_windows.csv
-          fi
+      # -------- Build (Windows) --------
+      - name: Build benchmark (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd ejercicio7
+          g++ -std=c++17 -O2 -Wall -Wextra `
+            apps/benchmark.cpp avl/AVLTree.cpp btree/BTree.cpp btree/DiskStorage.cpp `
+            -o bench.exe
 
+      # -------- Run (Windows) --------
+      - name: Run benchmark (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          cd ejercicio7
+          .\bench.exe
+          Rename-Item -Path bench.csv -NewName bench_windows.csv
+
+      # -------- Upload CSVs --------
       - name: Upload CSV artifact
         uses: actions/upload-artifact@v4
         with:
@@ -77,11 +91,12 @@ jobs:
       - name: Generate comparison plots
         shell: bash
         run: |
-          # Copiar CSVs a ejercicio7 para que el script los encuentre
+          # Copiar CSVs al folder del ejercicio
           cp artifacts/bench_linux.csv ejercicio7/bench_linux.csv
           cp artifacts/bench_windows.csv ejercicio7/bench_windows.csv
 
           cd ejercicio7
+          # OJO: tu archivo se llama plot_bench_compare.py según tu screenshot
           python plot_bench_compare.py
 
       - name: Upload plot artifacts
@@ -89,7 +104,7 @@ jobs:
         with:
           name: bench-plots
           path: |
-            ejercicio7/bench_compare_insert.png
-            ejercicio7/bench_compare_search.png
             ejercicio7/bench_linux.csv
             ejercicio7/bench_windows.csv
+            ejercicio7/bench_compare_insert.png
+            ejercicio7/bench_compare_search.png
